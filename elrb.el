@@ -21,7 +21,7 @@
 
 ;;; Commentary:
 
-;; Emacs Lips Ruby Environment in Emacs
+;; Emacs Lips for Ruby Development Environment in Emacs
 
 ;;; Code:
 
@@ -41,16 +41,32 @@
 
 (defvar elrb-mode-map
   (let ((map (make-sparse-keymap)))
-    (define-key map "C-c C-c" 'newline-and-indent)
-    (define-key map "C-q" 'newline-and-indent)
+    (define-key map (kbd "C-c C-c") 'newline-and-indent)
+    (define-key map (kbd "C-c C-d") 'elrb-occur-definitions)
 
     map)
   "Key map for the Emacs Lisp Ruby Environment")
+
+;;;;;;;;;;;;;;;;;;;;
+;;; List Definitions
+
+(defun elrb-occur-definitions ()
+  "Display an occur buffer to list all definitions in it.
+
+And swith to this buffer."
+  (interactive)
+  (let ((list-matching-lines-face nil))
+    (occur "^ *\\(def\\|class\\|module\\)"))
+  (let ((window (get-buffer-window "*Occur*")))
+    (if window
+        (select-window window)
+      (switch-to-buffer "*Occur*"))))
 
 ;;;###autoload
 (define-minor-mode elrb-mode
   "Minor mode in Ruby buffers for Emacs Lisp Ruby Development Environment."
   :lighter " Elrb"
+  :keymap elrb-mode-map
   (when (not (derived-mode-p 'ruby-mode))
     (error "Elrb only works with `ruby-mode'")))
 
