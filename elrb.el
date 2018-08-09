@@ -56,7 +56,7 @@
 And swith to this buffer."
   (interactive)
   (let ((list-matching-lines-face nil))
-    (occur "^ *\\(def\\|class\\|module\\)"))
+    (occur "^ *\\(def\\|class\\|module\\) "))
   (let ((window (get-buffer-window "*Occur*")))
     (if window
         (select-window window)
