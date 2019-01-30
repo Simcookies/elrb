@@ -47,13 +47,76 @@
   :group 'elrb
   )
 
+(defcustom elrb-project-root nil
+  "The root of the project the current buffer is in."
+  :type 'directory
+  :safe 'file-directory-p
+  :group 'elrb)
+(make-variable-buffer-local 'elrb-project-root)
+
+(defcustom elrb-project-root-finder-functions
+  '(elrb-project-find-projectile-root
+    elrb-project-find-git-root
+    elrb-project-find-hg-root
+    elrb-project-find-svn-root)
+  "List of functions to ask for the current project root."
+  :type '(set (const :tag "Projectile project root"
+                     elrb-project-find-projectile-root)
+              (const :tag "Git repository root (.git)"
+                     elrb-project-find-git-root)
+              (const :tag "Mercurial project root (.hg)"
+                     elrb-project-find-hg-root)
+              (const :tag "Subversion project root (.svn)"
+                     elrb-project-find-svn-root))
+  :group 'elrb)
+
 (defvar elrb-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "C-c C-c") 'newline-and-indent)
     (define-key map (kbd "C-c C-d") 'elrb-occur-definitions)
+    (define-key map (kbd "C-c C-f") 'elrb-find-file)
 
     map)
   "Key map for the Emacs Lisp Ruby Environment")
+
+;;;;;;;;;;;;
+;;; Projects
+
+(defun elrb-project-root ()
+  "Return the root of the current buffer's project."
+  (when (not elrb-project-root)
+    (setq elrb-project-root
+          (run-hook-with-args-until-success
+           'elrb-project-root-finder-functions)))
+  elrb-project-root)
+
+(defun elrb-set-project-root (new-root)
+  "Set the Elrb project root to NEW-ROOT."
+  (interactive "DNew project root: ")
+  (setq elrb-project-root new-root))
+
+(defun elrb-project-find-git-root ()
+  "Return the current git repository root, if any."
+  (locate-dominating-file default-directory ".git"))
+
+(defun elrb-project-find-hg-root ()
+  "Return the current git repository root, if any."
+  (locate-dominating-file default-directory ".hg"))
+
+(defun elrb-project-find-svn-root ()
+  "Return the current git repository root, if any."
+  (locate-dominating-file default-directory
+                          (lambda (dir)
+                            (and (file-directory-p (format "%s/.svn" dir))
+                                 (not (file-directory-p (format "%s/../.svn"
+                                                                dir)))))))
+
+(defun elrb-project-find-projectile-root ()
+  "Return the current project root according to projectile."
+  ;; `ignore-errors' both to avoid an unbound function error as well
+  ;; as ignore projectile saying there is no project root here.
+  (ignore-errors
+    (projectile-project-root)))
 
 ;;;;;;;;;;;
 ;;; Modules
@@ -106,6 +169,16 @@ Make sure global-init is called first."
     (`buffer-stop
      (highlight-indentation-mode -1))))
 
+(defun elrb-find-file (&optional dwim)
+  "Efficiently find a file in the current project.
+
+With prefix argument, tries to guess what kind of file the user
+wants to open."
+  (interactive "P")
+  (let ((ffip-project-root (or (elrb-project-root)
+                               default-directory)))
+    (find-file-in-project)))
+
 ;;;;;;;;;;;;;;;;;;;;
 ;;; List Definitions
 
@@ -122,7 +195,7 @@ And swith to this buffer."
       (switch-to-buffer "*Occur*"))))
 
 ;;;###autoload
-(defun elrb-enable (&optional)
+(defun elrb-enable (&optional ignored)
   "Enable Elrb in all future Ruby buffers."
   (interactive)
   (when (< emacs-major-version 24)
